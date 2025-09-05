@@ -286,12 +286,12 @@
       }
       const code = await resp.text();
       pyodide.FS.writeFile('pixel_mushroom.py', code);
-      setStatus('Ready. Click “Render”.');
+      setStatus('Ready. Click “Create”.');
     }
 
     async function renderOnce(params) {
       setError('');
-      setStatus('Rendering …');
+      setStatus('Creating …');
 
       const cfg = {
         // direct pass-through
