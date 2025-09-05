@@ -180,16 +180,20 @@ def auto_tune_mario_like(p: MushroomParams) -> MushroomParams:
     # DO NOT touch p.cap_w here. (Removing the aspect-based widening prevents cap_h from influencing cap_w.)
 
     # ---- Stem: independent of cap, but never wider than the cap ----
-    p.stem_w = max(3, int(round(p.stem_w)))
+    p.stem_w = max(2, int(round(p.stem_w)))   # allow even numbers, min 2
     p.stem_h = max(1, int(round(p.stem_h)))
 
     # clamp to cap width (equal allowed)
     if p.stem_w > p.cap_w:
         p.stem_w = p.cap_w
 
-    # enforce odd width for pixel-perfect centering; keep ≤ cap_w
-    if p.stem_w % 2 == 0:
-        p.stem_w = max(3, min(p.cap_w, p.stem_w - 1))
+    # force even width (for clean centering) — if odd, bump up by 1 but keep ≤ cap_w
+    if p.stem_w % 2 == 1:
+        if p.stem_w < p.cap_w:
+            p.stem_w += 1
+        else:
+            p.stem_w -= 1  # if already at cap limit and odd, step down
+
 
     # ---- Canvas safety margin ----
     est_total_h = eff_cap_h + p.cap_flat + p.stem_h + 4
