@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pixel Mushroom Preview — Auto Shadows + Range Bars</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body { margin: 0; padding: 0; background:#0f172a; color:#e2e8f0; }
+    .layout { display:flex; min-height: 100vh; }
+    .left { flex: 1; padding: 24px; display:flex; flex-direction:column; gap:12px; }
+    .right { width: 420px; border-left:1px solid #1f2937; background:#0b1220; display:flex; flex-direction:column; }
+    .panel-header { padding: 16px 16px 8px; font-weight:700; color:#a5b4fc; border-bottom:1px solid #1f2937; }
+    .panel { padding: 12px 16px; overflow:auto; max-height: calc(100vh - 48px); }
+    .preview { flex:1; display:flex; align-items:center; justify-content:center; background:#0b1220; border:1px dashed #334155; border-radius:16px; min-height: 360px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:16px; padding:16px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .row3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+    label { display:flex; flex-direction:column; gap:6px; font-size: 12px; color:#a5b4fc; }
+    input[type="number"], input[type="range"], select, button {
+      background:#0b1220; color:#e5e7eb; border:1px solid #243143; border-radius:10px; padding:10px; outline:none;
+    }
+    input[type="range"] { padding: 0; }
+    button { cursor:pointer; font-weight:600; }
+    button.primary { background:#1d4ed8; border-color:#1e40af; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .section { border:1px solid #1f2937; border-radius:12px; padding:10px; margin-bottom:10px; background:#0f172a; }
+    .section h3 { margin: 0 0 8px; font-size:13px; color:#93c5fd; }
+    .rgb { background:#0b1220; border-radius:10px; padding:8px; }
+    .badge { display:inline-block; font-size:11px; padding:2px 8px; border:1px solid #374151; border-radius:999px; color:#cbd5e1; }
+    .topbar { display:flex; gap:10px; align-items:center; }
+    #status { font-size:12px; color:#93c5fd; min-height:1.2em; }
+    #error  { color:#fecaca; white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; }
+    .hint { font-size:12px; color:#94a3b8; margin-top:6px; }
+    .val { font-size:11px; color:#93c5fd; text-align:right; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="left">
+      <div class="topbar">
+        <button id="renderBtn" class="primary">Render</button>
+        <button id="randomBtn">Randomize</button>
+        <span id="status"></span>
+      </div>
+      <div id="error"></div>
+      <div class="preview">
+        <img id="preview" alt="mushroom preview" />
+      </div>
+      <div class="card hint">
+        Place this HTML file and <code>pixel_mushroom.py</code> in the same folder. Serve (e.g., <code>python3 -m http.server 8000</code>) then open in the browser.
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="panel-header">Controls</div>
+      <div class="panel">
+
+        <div class="section">
+          <h3>Palette & Overrides</h3>
+          <div class="row">
+            <label>Palette
+              <select id="palette">
+                <option value="red">red</option>
+                <option value="green" selected>green</option>
+                <option value="blue">blue</option>
+              </select>
+            </label>
+            <label>Use custom RGB?
+              <select id="use_colors">
+                <option value="false" selected>false</option>
+                <option value="true">true</option>
+              </select>
+            </label>
+          </div>
+          <div class="hint">When “Use custom RGB” is true, the RGB below override the palette. Shadow colors are auto-derived.</div>
+        </div>
+
+        <div class="section">
+          <h3>Geometry</h3>
+
+          <label>cap_w
+            <input id="cap_w" type="range" value="24" min="8" max="64" step="1" />
+            <div class="val"><span id="cap_w_val">24</span></div>
+          </label>
+
+          <label>cap_h
+            <input id="cap_h" type="range" value="14" min="4" max="64" step="1" />
+            <div class="val"><span id="cap_h_val">14</span></div>
+          </label>
+
+          <label>cap_round (0.6–1.8)
+            <input id="cap_round" type="range" value="1.25" min="0.6" max="1.8" step="0.01" />
+            <div class="val"><span id="cap_round_val">1.25</span></div>
+          </label>
+
+          <label>cap_flat
+            <input id="cap_flat" type="range" value="2" min="0" max="10" step="1" />
+            <div class="val"><span id="cap_flat_val">2</span></div>
+          </label>
+
+          <label>stem_w
+            <input id="stem_w" type="range" value="9" min="5" max="31" step="1" />
+            <div class="val"><span id="stem_w_val">9</span></div>
+          </label>
+
+          <label>stem_h
+            <input id="stem_h" type="range" value="8" min="4" max="32" step="1" />
+            <div class="val"><span id="stem_h_val">8</span></div>
+          </label>
+
+          <div class="row">
+            <label>grid_w<input id="grid_w" type="number" value="24" min="16" max="96" step="1" /></label>
+            <label>grid_h<input id="grid_h" type="number" value="24" min="16" max="96" step="1" /></label>
+          </div>
+          <div class="row">
+            <label>offset_x<input id="offset_x" type="number" value="0" min="-32" max="32" step="1" /></label>
+            <label>offset_y<input id="offset_y" type="number" value="0" min="-32" max="32" step="1" /></label>
+          </div>
+          <label>scale
+            <input id="scale" type="range" value="16" min="1" max="64" step="1" />
+            <div class="val"><span id="scale_val">16</span></div>
+          </label>
+        </div>
+
+        <div class="section">
+          <h3>Decorations</h3>
+          <div class="row">
+            <label>spot_radius
+              <input id="spot_radius" type="range" value="2" min="1" max="8" step="1" />
+              <div class="val"><span id="spot_radius_val">2</span></div>
+            </label>
+            <label>ring_thickness
+              <input id="ring_thickness" type="range" value="0" min="0" max="6" step="1" />
+              <div class="val"><span id="ring_thickness_val">0</span></div>
+            </label>
+          </div>
+          <div class="row">
+            <label>add_center_spot
+              <select id="add_center_spot"><option>true</option><option selected>false</option></select>
+            </label>
+            <label>add_side_spots
+              <select id="add_side_spots"><option>true</option><option selected>false</option></select>
+            </label>
+          </div>
+          <div class="row">
+            <label>shadow_on_bottom_of_cap
+              <select id="cap_shadow_toggle"><option selected>true</option><option>false</option></select>
+            </label>
+            <label>add_outlines
+              <select id="add_outlines" disabled><option selected>true</option></select>
+            </label>
+          </div>
+          <div class="hint">Outline is always black. Eyes are always off.</div>
+        </div>
+
+        <div class="section">
+          <h3>Colors (RGB)</h3>
+
+          <div class="rgb">
+            <div class="badge">Cap</div>
+            <div class="row3">
+              <label>R<input id="cap_r" type="range" min="0" max="255" value="52" /></label>
+              <label>G<input id="cap_g" type="range" min="0" max="255" value="180" /></label>
+              <label>B<input id="cap_b" type="range" min="0" max="255" value="80" /></label>
+            </div>
+          </div>
+
+          <div class="rgb" style="margin-top:8px;">
+            <div class="badge">Spot</div>
+            <div class="row3">
+              <label>R<input id="spot_r" type="range" min="0" max="255" value="255" /></label>
+              <label>G<input id="spot_g" type="range" min="0" max="255" value="255" /></label>
+              <label>B<input id="spot_b" type="range" min="0" max="255" value="255" /></label>
+            </div>
+          </div>
+
+          <div class="rgb" style="margin-top:8px;">
+            <div class="badge">Stem</div>
+            <div class="row3">
+              <label>R<input id="stem_r" type="range" min="0" max="255" value="240" /></label>
+              <label>G<input id="stem_g" type="range" min="0" max="255" value="210" /></label>
+              <label>B<input id="stem_b" type="range" min="0" max="255" value="170" /></label>
+            </div>
+          </div>
+
+          <div class="rgb" style="margin-top:8px;">
+            <div class="badge">Ring</div>
+            <div class="row3">
+              <label>R<input id="ring_r" type="range" min="0" max="255" value="250" /></label>
+              <label>G<input id="ring_g" type="range" min="0" max="255" value="230" /></label>
+              <label>B<input id="ring_b" type="range" min="0" max="255" value="190" /></label>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Pyodide -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+  <script>
+    let pyodide;
+    const $ = id => document.getElementById(id);
+    const yes = el => (typeof el === 'string' ? $(el) : el).value === 'true';
+
+    // Shadow derivation factor (lower => darker)
+    const SHADOW_FACTOR = 0.78;
+    const clamp = (v, lo=0, hi=255) => Math.max(lo, Math.min(hi, v));
+    function deriveShadow(rgb) {
+      const [r,g,b] = rgb.map(v => parseInt(v,10));
+      return [clamp(Math.round(r*SHADOW_FACTOR)), clamp(Math.round(g*SHADOW_FACTOR)), clamp(Math.round(b*SHADOW_FACTOR))];
+    }
+    function rgb(idR, idG, idB) {
+      return [parseInt($(idR).value,10), parseInt($(idG).value,10), parseInt($(idB).value,10)];
+    }
+
+    // live value labels for range inputs
+    const bindVal = (id, out) => {
+      const el = $(id), outEl = $(out);
+      const sync = () => outEl.textContent = el.value;
+      el.addEventListener('input', sync); sync();
+    };
+    ['cap_w','cap_h','cap_round','cap_flat','stem_w','stem_h','scale','spot_radius','ring_thickness']
+      .forEach(k => bindVal(k, `${k}_val`));
+
+    function uiParams() {
+      const capRGB  = rgb('cap_r','cap_g','cap_b');
+      const stemRGB = rgb('stem_r','stem_g','stem_b');
+      const spotRGB = rgb('spot_r','spot_g','spot_b');
+      const ringRGB = rgb('ring_r','ring_g','ring_b');
+
+      return {
+        palette: $('palette').value,
+        useColors: yes('use_colors'),
+
+        // geometry
+        cap_w: parseInt($('cap_w').value, 10),
+        cap_h: parseInt($('cap_h').value, 10),
+        cap_round: parseFloat($('cap_round').value),
+        cap_flat: parseInt($('cap_flat').value, 10),
+        stem_w: parseInt($('stem_w').value, 10),
+        stem_h: parseInt($('stem_h').value, 10),
+        grid_w: parseInt($('grid_w').value, 10),
+        grid_h: parseInt($('grid_h').value, 10),
+        offset_x: parseInt($('offset_x').value, 10),
+        offset_y: parseInt($('offset_y').value, 10),
+        scale: parseInt($('scale').value, 10),
+
+        // deco
+        spot_radius: parseInt($('spot_radius').value, 10),
+        ring_thickness: parseInt($('ring_thickness').value, 10),
+        add_center_spot: $('add_center_spot').value === 'true',
+        add_side_spots: $('add_side_spots').value === 'true',
+        cap_shadow_toggle: $('cap_shadow_toggle').value === 'true',
+
+        // colors (outline always black; eyes always false)
+        colors: {
+          cap: capRGB,
+          capShadow: deriveShadow(capRGB),   // auto
+          spot: spotRGB,
+          stem: stemRGB,
+          stemShadow: deriveShadow(stemRGB), // auto
+          ring: ringRGB,
+          outline: [0,0,0],
+        }
+      };
+    }
+
+    function setStatus(msg) { $('status').textContent = msg || ''; }
+    function setError(msg)  { $('error').textContent  = msg || ''; }
+
+    async function init() {
+      setStatus('Loading Python (Pyodide) …');
+      pyodide = await loadPyodide();
+      await pyodide.loadPackage(['numpy', 'pillow']);
+
+      setStatus('Fetching pixel_mushroom.py …');
+      const resp = await fetch('pixel_mushroom.py');
+      if (!resp.ok) {
+        setError('Could not fetch pixel_mushroom.py. Make sure it is next to this HTML and you are serving the folder over HTTP.');
+        setStatus('');
+        return;
+      }
+      const code = await resp.text();
+      pyodide.FS.writeFile('pixel_mushroom.py', code);
+      setStatus('Ready. Click “Render”.');
+    }
+
+    async function renderOnce(params) {
+      setError('');
+      setStatus('Rendering …');
+
+      const cfg = {
+        // direct pass-through
+        palette_name: params.palette,
+        cap_w: params.cap_w, cap_h: params.cap_h, cap_round: params.cap_round, cap_flat: params.cap_flat,
+        stem_w: params.stem_w, stem_h: params.stem_h,
+        grid_w: params.grid_w, grid_h: params.grid_h, offset_x: params.offset_x, offset_y: params.offset_y,
+        ring_thickness: params.ring_thickness, spot_radius: params.spot_radius,
+        add_center_spot: params.add_center_spot, add_side_spots: params.add_side_spots,
+        shadow_on_bottom_of_cap: params.cap_shadow_toggle,  // <-- important
+        scale: params.scale,
+
+        // color overrides (only if useColors)
+        cap_color:    params.useColors ? [...params.colors.cap, 255] : null,
+        cap_shadow_color: params.useColors ? [...params.colors.capShadow, 255] : null,
+        spot_color:   params.useColors ? [...params.colors.spot, 255] : null,
+        stem_color:   params.useColors ? [...params.colors.stem, 255] : null,
+        stem_shadow_color: params.useColors ? [...params.colors.stemShadow, 255] : null,
+        ring_color:   params.useColors ? [...params.colors.ring, 255] : null,
+        outline_color:[0,0,0,255]  // always black
+      };
+
+      const py = `
+import json, base64
+from io import BytesIO
+from PIL import Image
+from pixel_mushroom import MushroomParams, draw_mushroom
+
+cfg = json.loads(${JSON.stringify(JSON.stringify(cfg))})
+
+def to_rgba(v):
+    if v is None: return None
+    r,g,b,a = [int(x) for x in v]
+    return (r,g,b,a)
+
+p = MushroomParams(
+    # colors
+    cap_color=to_rgba(cfg.get("cap_color")),
+    cap_shadow_color=to_rgba(cfg.get("cap_shadow_color")),
+    spot_color=to_rgba(cfg.get("spot_color")),
+    stem_color=to_rgba(cfg.get("stem_color")),
+    stem_shadow_color=to_rgba(cfg.get("stem_shadow_color")),
+    ring_color=to_rgba(cfg.get("ring_color")),
+    outline_color=to_rgba(cfg.get("outline_color")),
+    eye_color=None,  # eyes off
+
+    # canvas / placement
+    grid_w=int(cfg["grid_w"]), grid_h=int(cfg["grid_h"]),
+    centered=True, offset_x=int(cfg["offset_x"]), offset_y=int(cfg["offset_y"]),
+
+    # cap geometry
+    cap_w=int(cfg["cap_w"]), cap_h=int(cfg["cap_h"]),
+    cap_flat=int(cfg["cap_flat"]), cap_round=float(cfg["cap_round"]),
+
+    # stem
+    stem_w=int(cfg["stem_w"]), stem_h=int(cfg["stem_h"]),
+
+    # ring, spots
+    ring_thickness=int(cfg["ring_thickness"]),
+    spot_radius=int(cfg["spot_radius"]),
+    add_center_spot=bool(cfg["add_center_spot"]),
+    add_side_spots=bool(cfg["add_side_spots"]),
+
+    # face: eyes always off
+    add_eyes=False,
+
+    # style
+    palette_name=cfg["palette_name"],
+    add_outlines=True,
+    shadow_on_bottom_of_cap=bool(cfg["shadow_on_bottom_of_cap"]),
+
+    # output
+    scale=int(cfg["scale"])
+)
+
+img = draw_mushroom(p)
+if p.scale and p.scale > 1:
+    img = img.resize((img.width * p.scale, img.height * p.scale), resample=Image.Resampling.NEAREST)
+
+buf = BytesIO()
+img.save(buf, format="PNG")
+"data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+      `;
+
+      try {
+        const dataUrl = await pyodide.runPythonAsync(py);
+        $('preview').src = dataUrl;
+        setStatus('Done.');
+      } catch (err) {
+        setStatus('');
+        setError(String(err));
+      }
+    }
+
+    $('renderBtn').addEventListener('click', async () => {
+      const params = uiParams();
+      $('renderBtn').disabled = true;
+      try { await renderOnce(params); }
+      finally { $('renderBtn').disabled = false; }
+    });
+
+    $('randomBtn').addEventListener('click', () => {
+      // bounded random nudges
+      const r = (v, lo, hi, step=1) => Math.max(lo, Math.min(hi, Math.round(v + (Math.random()*2-1)*step)));
+      $('cap_w').value = r(parseInt($('cap_w').value,10), 16, 48, 4);
+      $('cap_h').value = r(parseInt($('cap_h').value,10),  8, 24, 3);
+      $('cap_round').value = Math.max(0.7, Math.min(1.6, parseFloat($('cap_round').value) + (Math.random()*0.3-0.15)));
+      $('cap_flat').value = r(parseInt($('cap_flat').value,10), 0, 4, 1);
+      $('stem_w').value = r(parseInt($('stem_w').value,10), 5, 21, 2);
+      $('stem_h').value = r(parseInt($('stem_h').value,10), 6, 16, 2);
+      $('spot_radius').value = r(parseInt($('spot_radius').value,10), 1, 4, 1);
+      $('ring_thickness').value = r(parseInt($('ring_thickness').value,10), 0, 6, 1);
+
+      // sync labels
+      ['cap_w','cap_h','cap_round','cap_flat','stem_w','stem_h','scale','spot_radius','ring_thickness']
+        .forEach(k => { $(`${k}_val`).textContent = $(k).value; });
+    });
+
+    init();
+  </script>
+</body>
+</html>
